@@ -2,25 +2,6 @@ name: CunRadar Daily
 
 on:
   schedule:
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 自定义运行时间（UTC 时间）
-    #
-    #  分钟 小时 日 月 星期
-    #   ──  ──  ─ ─ ───
-    #  "0   8   * * *"  = 每天 UTC 08:00
-    #
-    # 北京时间比 UTC 快 8 小时，所以：
-    #   UTC 00:00 = 北京 08:00
-    #   UTC 16:00 = 北京 00:00（次日）
-    #
-    # 常用配置：
-    #   "0 0 * * *"   每天北京 08:00（默认）
-    #   "30 1 * * *"  每天北京 09:30
-    #   "0 12 * * *"  每天北京 20:00
-    #   "0 0 * * 1-5" 工作日北京 08:00（周末不跑）
-    #
-    # 只改第一、二个数字（分钟、小时），其余保持 * 不变
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     - cron: "0 11 * * *"
   workflow_dispatch:
 
@@ -50,12 +31,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --no-dev
 
-      - name: Restore database from cache
+      - name: Restore latest database from cache
         uses: actions/cache@v4
-        id: db-cache
         with:
           path: output/cunradar.db
-          key: cunradar-db-v1
+          key: cunradar-db-${{ github.run_id }}
+          restore-keys: |
+            cunradar-db-
 
       - name: Run CunRadar
         env:
@@ -67,11 +49,14 @@ jobs:
           FOLLOW_CONFIG: ${{ secrets.FOLLOW_CONFIG || vars.FOLLOW_CONFIG || '' }}
         run: uv run python -m cunradar
 
-      - name: Save database to cache
+      - name: Save database to a new cache entry
         uses: actions/cache/save@v4
         with:
           path: output/cunradar.db
-          key: cunradar-db-v1
+          key: cunradar-db-${{ github.run_id }}
+
+      - name: Remove private database from public deployment
+        run: rm -f output/cunradar.db
 
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy output/ --project-name=${{ vars.CUNRADAR_PROJECT_NAME || 'cunradar' }}
