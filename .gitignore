@@ -8,6 +8,9 @@ build/
 
 # Environment
 .env
+.dev.vars
+admin/.wrangler/
+admin/node_modules/
 .venv/
 venv/
 

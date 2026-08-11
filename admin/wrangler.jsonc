@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cunradar-admin",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 }
+  },
+  "vars": {
+    "GITHUB_OWNER": "ipdoctor961051-cyber",
+    "GITHUB_REPO": "CunRadar",
+    "REPORT_URL": "https://cunradar-cyl.pages.dev"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cunradar-admin",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}

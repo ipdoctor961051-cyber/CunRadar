@@ -1,0 +1,14 @@
+{
+  "name": "cunradar-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit && wrangler deploy --dry-run",
+    "types": "wrangler types",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "wrangler": "^4.30.0"
+  }
+}

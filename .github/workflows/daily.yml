@@ -39,6 +39,17 @@ jobs:
           restore-keys: |
             cunradar-db-
 
+      - name: Load follow list from admin console
+        if: ${{ vars.CUNRADAR_CONFIG_URL != '' && secrets.CUNRADAR_CONFIG_TOKEN != '' }}
+        env:
+          CONFIG_URL: ${{ vars.CUNRADAR_CONFIG_URL }}
+          CONFIG_TOKEN: ${{ secrets.CUNRADAR_CONFIG_TOKEN }}
+        run: |
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${CONFIG_TOKEN}" \
+            "${CONFIG_URL}" > /tmp/follow-config.json
+          echo "FOLLOW_CONFIG=$(jq -c . /tmp/follow-config.json)" >> "$GITHUB_ENV"
+
       - name: Run CunRadar
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -46,8 +57,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}
           CUNRADAR_PUBLIC_URL: ${{ vars.CUNRADAR_PUBLIC_URL || '' }}
-          FOLLOW_CONFIG: ${{ secrets.FOLLOW_CONFIG || vars.FOLLOW_CONFIG || '' }}
-        run: uv run python -m cunradar
+          FOLLOW_CONFIG_FALLBACK: ${{ secrets.FOLLOW_CONFIG || vars.FOLLOW_CONFIG || '' }}
+        run: |
+          export FOLLOW_CONFIG="${FOLLOW_CONFIG:-$FOLLOW_CONFIG_FALLBACK}"
+          uv run python -m cunradar
 
       - name: Save database to a new cache entry
         uses: actions/cache/save@v4

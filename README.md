@@ -296,6 +296,15 @@ app:
 
 ---
 
+## 可视化管理后台
+
+`admin/` 包含一个 Cloudflare Worker + D1 管理后台，可用于管理关注源、查看运行状态并手动触发日报。
+敏感的管理密码、GitHub Token 和配置读取 Token 必须通过 Worker Secrets 保存，不会写入浏览器或仓库。
+
+部署说明见 [`admin/README.md`](admin/README.md)。
+
+---
+
 ## License
 
 [MIT](LICENSE)
