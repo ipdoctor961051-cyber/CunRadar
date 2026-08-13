@@ -70,9 +70,10 @@ follow:
 
 # ─── AI 配置 ───────────────────────────────────────────────────
 ai:
-  model: "deepseek-chat"              # DeepSeek 模型名
-  api_key: "${DEEPSEEK_API_KEY}"      # 从环境变量读取
-  api_base: "https://api.deepseek.com"
+  # AI_PROVIDER may be cloudflare or deepseek. Credentials are read only
+  # from environment variables; see .env.example.
+  provider: "${AI_PROVIDER}"
+  model: "${AI_MODEL}"
   timeout: 120
 
 # ─── 通知配置 ─────────────────────────────────────────────────
