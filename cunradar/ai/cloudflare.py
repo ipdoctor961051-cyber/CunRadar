@@ -3,7 +3,7 @@
 from .openai_compatible import OpenAICompatibleProvider
 
 
-DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+DEFAULT_MODEL = "@cf/meta/llama-3.2-3b-instruct"
 
 
 class CloudflareProvider(OpenAICompatibleProvider):
