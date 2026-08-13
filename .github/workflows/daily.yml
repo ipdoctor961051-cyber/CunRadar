@@ -13,6 +13,8 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CUNRADAR_CONFIG_TOKEN: ${{ secrets.CUNRADAR_CONFIG_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -40,19 +42,23 @@ jobs:
             cunradar-db-
 
       - name: Load follow list from admin console
-        if: ${{ vars.CUNRADAR_CONFIG_URL != '' && secrets.CUNRADAR_CONFIG_TOKEN != '' }}
+        if: ${{ vars.CUNRADAR_CONFIG_URL != '' && env.CUNRADAR_CONFIG_TOKEN != '' }}
         env:
           CONFIG_URL: ${{ vars.CUNRADAR_CONFIG_URL }}
-          CONFIG_TOKEN: ${{ secrets.CUNRADAR_CONFIG_TOKEN }}
         run: |
           curl --fail --silent --show-error \
-            --header "Authorization: Bearer ${CONFIG_TOKEN}" \
+            --header "Authorization: Bearer ${CUNRADAR_CONFIG_TOKEN}" \
             "${CONFIG_URL}" > /tmp/follow-config.json
           echo "FOLLOW_CONFIG=$(jq -c . /tmp/follow-config.json)" >> "$GITHUB_ENV"
 
       - name: Run CunRadar
         env:
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || '' }}
+          AI_MODEL: ${{ vars.AI_MODEL || '' }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '' }}
+          CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || '' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}

@@ -20,7 +20,7 @@ from .collectors.bilibili import BilibiliCollector
 from .collectors.rss import RSSCollector
 from .collectors.github import GitHubTrendingCollector, GitHubRepoCollector
 from .storage import Storage
-from .ai import generate_digest
+from .ai import AIRequestError, generate_digest
 from .report import generate_html
 from .notification import send_digest
 
@@ -240,18 +240,17 @@ def main() -> None:
 
     # ── 6. Generate AI digest ──
     digest = ""
-    if all_new_items and ai_cfg.get("api_key"):
+    if all_new_items:
         print("\n[AI] Generating daily digest...")
-        digest = generate_digest(
-            items=all_new_items,
-            date_str=date_str,
-            api_key=ai_cfg["api_key"],
-            model=ai_cfg.get("model", "deepseek-chat"),
-            api_base=ai_cfg.get("api_base", "https://api.deepseek.com"),
-            timeout=ai_cfg.get("timeout", 120),
-        )
-    elif not ai_cfg.get("api_key"):
-        print("\n[AI] Skipped (DEEPSEEK_API_KEY not configured)")
+        try:
+            digest = generate_digest(
+                items=all_new_items,
+                date_str=date_str,
+                config=ai_cfg,
+            )
+        except AIRequestError as exc:
+            print(f"  [AI] Recoverable provider error: {exc}")
+            print("  [AI] Continuing report generation without an AI digest")
     else:
         print("\n[AI] Skipped (no new items to summarize)")
 

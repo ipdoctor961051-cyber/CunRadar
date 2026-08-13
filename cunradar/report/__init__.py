@@ -1,8 +1,11 @@
 """HTML daily report generator."""
 
+import html
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from ..collectors.base import CollectedItem
 
@@ -17,6 +20,47 @@ _SOURCES = {
     "github": ("GitHub 项目", "💻"),
     "github_trending": ("GitHub Trending", "🔥"),
 }
+
+
+def _safe_http_url(value: str) -> str | None:
+    """Return an escaped HTTP(S) URL suitable for an href attribute."""
+    url = value.strip()
+    if not url or any(ord(char) < 32 or ord(char) == 127 for char in url):
+        return None
+    try:
+        parsed = urlsplit(url)
+        hostname = parsed.hostname
+    except ValueError:
+        return None
+    if parsed.scheme.lower() not in {"http", "https"} or not hostname:
+        return None
+    return html.escape(url, quote=True)
+
+
+def _render_inline_markdown(value: str) -> str:
+    """Escape text, then render only the supported bold Markdown syntax."""
+    escaped = html.escape(value, quote=True)
+    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+
+
+def _render_digest(digest: str) -> str:
+    """Render a safe subset of Markdown without accepting raw HTML."""
+    rendered: list[str] = []
+    for raw_line in digest.strip().splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
+        if heading_match:
+            level = len(heading_match.group(1))
+            rendered.append(
+                f"<h{level}>{_render_inline_markdown(heading_match.group(2))}</h{level}>"
+            )
+        elif line.startswith(("- ", "* ")):
+            rendered.append(f"<li>{_render_inline_markdown(line[2:])}</li>")
+        else:
+            rendered.append(f"<p>{_render_inline_markdown(line)}</p>")
+    return f'<div class="digest">{"".join(rendered)}</div>' if rendered else ""
 
 
 def _build_section(title: str, icon: str, items: list[CollectedItem]) -> str:
@@ -40,14 +84,24 @@ def _build_row(item: CollectedItem) -> str:
     if item.published:
         published = f'<span class="time">{item.published.strftime("%Y-%m-%d %H:%M")}</span>'
 
-    desc = f'<p class="desc">{item.description[:300]}</p>' if item.description else ""
+    title = html.escape(item.title, quote=True)
+    source_name = html.escape(item.source_name, quote=True)
+    description = html.escape(item.description[:300], quote=True)
+    desc = f'<p class="desc">{description}</p>' if item.description else ""
+    safe_url = _safe_http_url(item.url)
+    title_html = (
+        f'<a class="item-title" href="{safe_url}" target="_blank" rel="noopener">'
+        f"{title}</a>"
+        if safe_url
+        else f'<span class="item-title">{title}</span>'
+    )
 
     return f"""<div class="item">
     <div class="item-header">
-        <a class="item-title" href="{item.url}" target="_blank" rel="noopener">{item.title}</a>
+        {title_html}
         {published}
     </div>
-    <div class="meta">{item.source_name}</div>
+    <div class="meta">{source_name}</div>
     {desc}
 </div>"""
 
@@ -100,29 +154,7 @@ def generate_html(
         if key in grouped:
             total_sections += 1
 
-    # Convert AI digest markdown to simple HTML paragraphs
-    import re
-
-    digest_html = ""
-    if digest:
-        for line in digest.strip().split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            # Handle headings: # to ######
-            heading_match = re.match(r"^(#{1,6})\s+(.+)$", line)
-            if heading_match:
-                level = len(heading_match.group(1))
-                digest_html += f"<h{level}>{heading_match.group(2)}</h{level}>"
-            elif line.startswith("- ") or line.startswith("* "):
-                # Also convert **bold** in list items
-                text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line[2:])
-                digest_html += f"<li>{text}</li>"
-            else:
-                # Convert **bold** to <strong>
-                line = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line)
-                digest_html += f"<p>{line}</p>"
-        digest_html = f'<div class="digest">{digest_html}</div>'
+    digest_html = _render_digest(digest) if digest else ""
 
     # Read template
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
