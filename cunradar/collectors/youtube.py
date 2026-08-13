@@ -17,6 +17,17 @@ import requests
 from .base import BaseCollector, CollectedItem
 
 
+_FEED_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept": "application/atom+xml, application/xml, text/xml",
+}
+
+
 def _resolve_handle(handle: str) -> str | None:
     """Resolve a YouTube @handle to a channel_id by scraping the channel page.
 
@@ -91,17 +102,60 @@ class YouTubeCollector(BaseCollector):
             feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 
             try:
-                feed = feedparser.parse(feed_url)
+                response = requests.get(
+                    feed_url,
+                    headers=_FEED_HEADERS,
+                    timeout=15,
+                )
+                response.raise_for_status()
+            except requests.RequestException as e:
+                print(
+                    f"  [YouTube] Failed to fetch '{name}': "
+                    f"{type(e).__name__}: {e}"
+                )
+                continue
+
+            content_type = response.headers.get("Content-Type", "").lower()
+            if content_type and not any(
+                expected in content_type
+                for expected in ("application/atom+xml", "application/xml", "text/xml")
+            ):
+                print(
+                    f"  [YouTube] Invalid feed response for '{name}': "
+                    f"unexpected Content-Type {content_type}"
+                )
+                continue
+
+            try:
+                feed = feedparser.parse(response.content)
             except Exception as e:
-                print(f"  [YouTube] Failed to fetch '{name}': {e}")
+                print(
+                    f"  [YouTube] Failed to parse '{name}': "
+                    f"{type(e).__name__}: {e}"
+                )
                 continue
 
             if feed.bozo and not feed.entries:
-                print(f"  [YouTube] No entries for '{name}' (bad feed)")
+                exception = feed.get("bozo_exception")
+                exception_type = type(exception).__name__ if exception else "UnknownError"
+                print(
+                    f"  [YouTube] No entries for '{name}' (bad feed): "
+                    f"{exception_type}: {exception}"
+                )
                 continue
+            if feed.bozo:
+                exception = feed.get("bozo_exception")
+                exception_type = type(exception).__name__ if exception else "UnknownError"
+                print(
+                    f"  [YouTube] Feed warning for '{name}'; keeping valid entries: "
+                    f"{exception_type}: {exception}"
+                )
 
             for entry in feed.entries:
-                video_id = entry.get("yt_videoid", entry.id)
+                video_id = entry.get("yt_videoid") or entry.get("id")
+                if not video_id:
+                    print(f"  [YouTube] Skipping incomplete entry for '{name}'")
+                    continue
                 published = None
                 if "published_parsed" in entry and entry.published_parsed:
                     published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
